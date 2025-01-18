@@ -128,36 +128,28 @@ elif tab == "Current/Previous Orders":
         # Group orders by Order Number
         grouped_orders = orders_df.groupby("Order Number")
 
-        # Display each order in a separate table
+        # Placeholder to store updated orders
+        updated_orders = pd.DataFrame()
+
+        # Display each order in a separate table with delete functionality
         for order_number, group in grouped_orders:
             st.subheader(f"{order_number} (Date: {group['Date'].iloc[0]})")
             st.table(group[["Drink", "Quantity"]])
 
-            # Add delete button for each order
-            if st.button(f"Delete {order_number}"):
-                orders_df = orders_df[orders_df["Order Number"] != order_number]
-                orders_df.to_csv(ORDERS_FILE, index=False)
-                st.warning(f"{order_number} has been deleted!")
-                st.experimental_rerun()  # Refresh the app after deletion
+            # Add delete checkbox for each order
+            if st.checkbox(f"Delete {order_number}", key=f"delete_{order_number}"):
+                # Skip this order during the update
+                st.warning(f"{order_number} marked for deletion.")
+            else:
+                # Keep this order
+                updated_orders = pd.concat([updated_orders, group])
 
-        # Download orders as CSV
-        st.subheader("Download Orders")
-        csv = orders_df.to_csv(index=False).encode("utf-8")
-        st.download_button(
-            label="Download All Orders as CSV",
-            data=csv,
-            file_name="previous_orders.csv",
-            mime="text/csv",
-        )
-
-        # Share latest order
-        st.subheader("Share Latest Order")
-        latest_order_number = orders_df["Order Number"].iloc[-1]
-        latest_order = grouped_orders.get_group(latest_order_number)
-        share_text = f"My latest drink order ({latest_order_number}):\n\n" + "\n".join(
-            f"{row['Drink']}: {row['Quantity']}" for _, row in latest_order.iterrows()
-        )
-        whatsapp_url = f"https://api.whatsapp.com/send?text={quote(share_text)}"
-        st.markdown(f"[Share on WhatsApp]({whatsapp_url})", unsafe_allow_html=True)
+        # Save the updated orders back to the file after confirming deletions
+        if st.button("Apply Changes"):
+            updated_orders.to_csv(ORDERS_FILE, index=False)
+            st.success("Selected orders have been deleted.")
+            # Manually refresh the UI by showing the updated orders
+            st.dataframe(updated_orders)
     else:
         st.info("No previous orders found.")
+
