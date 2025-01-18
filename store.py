@@ -108,9 +108,23 @@ elif tab == "Manage Drink Menu":
 # Tab 3: Current/Previous Orders
 elif tab == "Current/Previous Orders":
     st.header("Current and Previous Orders")
-    if os.path.exists(ORDERS_FILE) and not pd.read_csv(ORDERS_FILE).empty:
-        orders_df = pd.read_csv(ORDERS_FILE)
 
+    # Handle file reading safely
+    try:
+        if os.path.exists(ORDERS_FILE):
+            orders_df = pd.read_csv(ORDERS_FILE)
+            if orders_df.empty:
+                raise ValueError("The orders file is empty.")
+        else:
+            # Create an empty DataFrame with required columns
+            orders_df = pd.DataFrame(columns=["Order Number", "Date", "Drink", "Quantity"])
+            orders_df.to_csv(ORDERS_FILE, index=False)
+    except (pd.errors.EmptyDataError, ValueError):
+        # Handle empty or invalid file by recreating it
+        orders_df = pd.DataFrame(columns=["Order Number", "Date", "Drink", "Quantity"])
+        orders_df.to_csv(ORDERS_FILE, index=False)
+
+    if not orders_df.empty:
         # Group orders by Order Number
         grouped_orders = orders_df.groupby("Order Number")
 
