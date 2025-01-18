@@ -109,7 +109,7 @@ elif tab == "Manage Drink Menu":
 elif tab == "Current/Previous Orders":
     st.header("Current and Previous Orders")
 
-    # Handle file reading safely
+    # Load orders safely
     try:
         if os.path.exists(ORDERS_FILE):
             orders_df = pd.read_csv(ORDERS_FILE)
@@ -132,6 +132,13 @@ elif tab == "Current/Previous Orders":
         for order_number, group in grouped_orders:
             st.subheader(f"{order_number} (Date: {group['Date'].iloc[0]})")
             st.table(group[["Drink", "Quantity"]])
+
+            # Add delete button for each order
+            if st.button(f"Delete {order_number}"):
+                orders_df = orders_df[orders_df["Order Number"] != order_number]
+                orders_df.to_csv(ORDERS_FILE, index=False)
+                st.warning(f"{order_number} has been deleted!")
+                st.experimental_rerun()  # Refresh the app after deletion
 
         # Download orders as CSV
         st.subheader("Download Orders")
