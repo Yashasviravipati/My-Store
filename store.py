@@ -21,7 +21,7 @@ else:
 
 # Initialize orders file if it doesn't exist
 if not os.path.exists(ORDERS_FILE):
-    pd.DataFrame(columns=["Date", "Drink", "Quantity"]).to_csv(ORDERS_FILE, index=False)
+    pd.DataFrame(columns=["Order Number", "Date", "Drink", "Quantity"]).to_csv(ORDERS_FILE, index=False)
 
 # Initialize session state for the cart
 if "cart" not in st.session_state:
@@ -61,14 +61,16 @@ if tab == "Create New Order":
         # Save order button
         if st.button("Save Order"):
             order_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            order_number = len(pd.read_csv(ORDERS_FILE)) // len(cart_summary) + 1
             order_data = pd.DataFrame({
+                "Order Number": [f"Order {order_number}"] * len(cart_summary),
                 "Date": [order_date] * len(cart_summary),
                 "Drink": cart_summary["Drink"],
                 "Quantity": cart_summary["Quantity"]
             })
             order_data.to_csv(ORDERS_FILE, mode="a", header=False, index=False)
             st.session_state["cart"] = []
-            st.success(f"Order saved successfully on {order_date}!")
+            st.success(f"Order {order_number} saved successfully on {order_date}!")
 
         # Clear cart
         if st.button("Clear Cart"):
@@ -109,15 +111,19 @@ elif tab == "Current/Previous Orders":
     if os.path.exists(ORDERS_FILE) and not pd.read_csv(ORDERS_FILE).empty:
         orders_df = pd.read_csv(ORDERS_FILE)
 
-        # Display orders
-        st.subheader("Order History")
-        st.dataframe(orders_df)
+        # Group orders by Order Number
+        grouped_orders = orders_df.groupby("Order Number")
+
+        # Display each order in a separate table
+        for order_number, group in grouped_orders:
+            st.subheader(f"{order_number} (Date: {group['Date'].iloc[0]})")
+            st.table(group[["Drink", "Quantity"]])
 
         # Download orders as CSV
         st.subheader("Download Orders")
         csv = orders_df.to_csv(index=False).encode("utf-8")
         st.download_button(
-            label="Download Orders as CSV",
+            label="Download All Orders as CSV",
             data=csv,
             file_name="previous_orders.csv",
             mime="text/csv",
@@ -125,13 +131,12 @@ elif tab == "Current/Previous Orders":
 
         # Share latest order
         st.subheader("Share Latest Order")
-        if not orders_df.empty:
-            latest_order_date = orders_df["Date"].max()
-            latest_order = orders_df[orders_df["Date"] == latest_order_date]
-            share_text = f"My latest drink order ({latest_order_date}):\n\n" + "\n".join(
-                f"{row['Drink']}: {row['Quantity']}" for _, row in latest_order.iterrows()
-            )
-            whatsapp_url = f"https://api.whatsapp.com/send?text={quote(share_text)}"
-            st.markdown(f"[Share on WhatsApp]({whatsapp_url})", unsafe_allow_html=True)
+        latest_order_number = orders_df["Order Number"].iloc[-1]
+        latest_order = grouped_orders.get_group(latest_order_number)
+        share_text = f"My latest drink order ({latest_order_number}):\n\n" + "\n".join(
+            f"{row['Drink']}: {row['Quantity']}" for _, row in latest_order.iterrows()
+        )
+        whatsapp_url = f"https://api.whatsapp.com/send?text={quote(share_text)}"
+        st.markdown(f"[Share on WhatsApp]({whatsapp_url})", unsafe_allow_html=True)
     else:
         st.info("No previous orders found.")
