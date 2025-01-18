@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import os
+from datetime import datetime
 from urllib.parse import quote
 
 # File paths for persistence
@@ -18,9 +19,9 @@ if not os.path.exists(DRINKS_FILE):
 else:
     default_drinks = pd.read_csv(DRINKS_FILE)["Drink"].tolist()
 
-# Initialize orders if file doesn't exist
+# Initialize orders file if it doesn't exist
 if not os.path.exists(ORDERS_FILE):
-    pd.DataFrame(columns=["Order ID", "Drink", "Quantity"]).to_csv(ORDERS_FILE, index=False)
+    pd.DataFrame(columns=["Date", "Drink", "Quantity"]).to_csv(ORDERS_FILE, index=False)
 
 # Initialize session state for the cart
 if "cart" not in st.session_state:
@@ -51,15 +52,15 @@ if tab == "Create New Order":
 
         # Save order button
         if st.button("Save Order"):
-            order_id = len(pd.read_csv(ORDERS_FILE)) + 1
+            order_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             order_data = pd.DataFrame({
-                "Order ID": [order_id] * len(cart_summary),
+                "Date": [order_date] * len(cart_summary),
                 "Drink": cart_summary["Drink"],
                 "Quantity": cart_summary["Quantity"]
             })
             order_data.to_csv(ORDERS_FILE, mode="a", header=False, index=False)
             st.session_state["cart"] = []
-            st.success("Order saved successfully!")
+            st.success(f"Order saved successfully on {order_date}!")
 
         # Clear cart
         if st.button("Clear Cart"):
@@ -99,9 +100,29 @@ elif tab == "Current/Previous Orders":
     st.header("Current and Previous Orders")
     if os.path.exists(ORDERS_FILE) and not pd.read_csv(ORDERS_FILE).empty:
         orders_df = pd.read_csv(ORDERS_FILE)
+
+        # Display orders
+        st.subheader("Order History")
         st.dataframe(orders_df)
 
+        # Select rows to delete
+        st.subheader("Delete Specific Orders")
+        rows_to_delete = st.multiselect(
+            "Select rows to delete (based on the index)",
+            options=orders_df.index,
+            format_func=lambda x: f"Date: {orders_df.iloc[x]['Date']} | Drink: {orders_df.iloc[x]['Drink']} | Qty: {orders_df.iloc[x]['Quantity']}"
+        )
+
+        if st.button("Delete Selected Orders"):
+            if rows_to_delete:
+                orders_df = orders_df.drop(rows_to_delete).reset_index(drop=True)
+                orders_df.to_csv(ORDERS_FILE, index=False)
+                st.success("Selected orders have been deleted!")
+            else:
+                st.warning("No rows selected for deletion.")
+
         # Download orders as CSV
+        st.subheader("Download Orders")
         csv = orders_df.to_csv(index=False).encode("utf-8")
         st.download_button(
             label="Download Orders as CSV",
@@ -110,11 +131,12 @@ elif tab == "Current/Previous Orders":
             mime="text/csv",
         )
 
-        # Share order link
+        # Share latest order
         st.subheader("Share Latest Order")
         if not orders_df.empty:
-            latest_order = orders_df[orders_df["Order ID"] == orders_df["Order ID"].max()]
-            share_text = "Here is my latest drink order:\n\n" + "\n".join(
+            latest_order_date = orders_df["Date"].max()
+            latest_order = orders_df[orders_df["Date"] == latest_order_date]
+            share_text = f"My latest drink order ({latest_order_date}):\n\n" + "\n".join(
                 f"{row['Drink']}: {row['Quantity']}" for _, row in latest_order.iterrows()
             )
             whatsapp_url = f"https://api.whatsapp.com/send?text={quote(share_text)}"
