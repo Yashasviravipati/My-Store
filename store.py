@@ -50,6 +50,14 @@ if tab == "Create New Order":
         cart_summary.columns = ["Drink", "Quantity"]
         st.table(cart_summary)
 
+        # Undo the last addition
+        if st.button("Undo Last Addition"):
+            if st.session_state["cart"]:
+                removed_item = st.session_state["cart"].pop()
+                st.warning(f"Removed the last added item: {removed_item}")
+            else:
+                st.warning("No items in the cart to undo!")
+
         # Save order button
         if st.button("Save Order"):
             order_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -104,22 +112,6 @@ elif tab == "Current/Previous Orders":
         # Display orders
         st.subheader("Order History")
         st.dataframe(orders_df)
-
-        # Select rows to delete
-        st.subheader("Delete Specific Orders")
-        rows_to_delete = st.multiselect(
-            "Select rows to delete (based on the index)",
-            options=orders_df.index,
-            format_func=lambda x: f"Date: {orders_df.iloc[x]['Date']} | Drink: {orders_df.iloc[x]['Drink']} | Qty: {orders_df.iloc[x]['Quantity']}"
-        )
-
-        if st.button("Delete Selected Orders"):
-            if rows_to_delete:
-                orders_df = orders_df.drop(rows_to_delete).reset_index(drop=True)
-                orders_df.to_csv(ORDERS_FILE, index=False)
-                st.success("Selected orders have been deleted!")
-            else:
-                st.warning("No rows selected for deletion.")
 
         # Download orders as CSV
         st.subheader("Download Orders")
