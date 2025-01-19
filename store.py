@@ -22,16 +22,20 @@ if not os.path.exists(DRINKS_FILE):
 else:
     default_drinks = pd.read_csv(DRINKS_FILE)["Drink"].tolist()
 
-# Initialize session state for authentication
+# Initialize orders file if it doesn't exist
+if not os.path.exists(ORDERS_FILE):
+    pd.DataFrame(columns=["Order Number", "Date", "Drink", "Quantity"]).to_csv(ORDERS_FILE, index=False)
+
+# Initialize session state for authentication and cart
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
+if "cart" not in st.session_state:
+    st.session_state["cart"] = []
 
 # Authentication Logic
 if not st.session_state["authenticated"]:
     st.title("Cool Drink Store Management")
     st.subheader("Enter the PIN to access the app")
-    ...
-
 
     # PIN input
     entered_pin = st.text_input("Enter PIN:", type="password")
@@ -51,21 +55,6 @@ else:
     if tab == "Create New Order":
         st.header("Create New Order")
         st.subheader("Tap on drinks to add them to your cart.")
-        
-        # Load default drinks
-        if not os.path.exists(DRINKS_FILE):
-            default_drinks = [
-                "Coca Cola", "Pepsi", "Sprite", "Fanta",
-                "Mountain Dew", "7 Up", "Dr Pepper",
-                "Red Bull", "Monster Energy"
-            ]
-            pd.DataFrame({"Drink": default_drinks}).to_csv(DRINKS_FILE, index=False)
-        else:
-            default_drinks = pd.read_csv(DRINKS_FILE)["Drink"].tolist()
-
-        # Initialize session state for the cart
-        if "cart" not in st.session_state:
-            st.session_state["cart"] = []
 
         for drink in default_drinks:
             if st.button(f"Add {drink} to Cart"):
@@ -113,7 +102,7 @@ else:
     elif tab == "Manage Drink Menu":
         st.header("Manage Your Drink Menu")
         st.subheader("Add new drinks to the menu below.")
-        
+
         with st.form("add_drink_form"):
             new_drink = st.text_input("Enter a new drink name")
             add_drink = st.form_submit_button("Add to Menu")
@@ -133,61 +122,56 @@ else:
             st.write(", ".join(default_drinks))
         else:
             st.info("No drinks in the menu. Add some to get started!")
-    # Tab 3: Current/Previous Orders
-elif tab == "Current/Previous Orders":
-    st.header("Current and Previous Orders")
 
-    # Load orders safely
-    try:
-        if os.path.exists(ORDERS_FILE):
-            orders_df = pd.read_csv(ORDERS_FILE)
-            if orders_df.empty:
-                raise ValueError("The orders file is empty.")
-        else:
-            # Create an empty DataFrame with required columns
+    # Tab 3: Current/Previous Orders
+    elif tab == "Current/Previous Orders":
+        st.header("Current and Previous Orders")
+
+        # Load orders safely
+        try:
+            if os.path.exists(ORDERS_FILE):
+                orders_df = pd.read_csv(ORDERS_FILE)
+                if orders_df.empty:
+                    raise ValueError("The orders file is empty.")
+            else:
+                # Create an empty DataFrame with required columns
+                orders_df = pd.DataFrame(columns=["Order Number", "Date", "Drink", "Quantity"])
+                orders_df.to_csv(ORDERS_FILE, index=False)
+        except (pd.errors.EmptyDataError, ValueError):
+            # Handle empty or invalid file by recreating it
             orders_df = pd.DataFrame(columns=["Order Number", "Date", "Drink", "Quantity"])
             orders_df.to_csv(ORDERS_FILE, index=False)
-    except (pd.errors.EmptyDataError, ValueError):
-        # Handle empty or invalid file by recreating it
-        orders_df = pd.DataFrame(columns=["Order Number", "Date", "Drink", "Quantity"])
-        orders_df.to_csv(ORDERS_FILE, index=False)
 
-    if not orders_df.empty:
-        # Group orders by Order Number
-        grouped_orders = orders_df.groupby("Order Number")
+        if not orders_df.empty:
+            grouped_orders = orders_df.groupby("Order Number")
 
-        # Placeholder for updated orders
-        updated_orders = pd.DataFrame()
+            # Display each order with delete and share options
+            for order_number, group in grouped_orders:
+                st.subheader(f"{order_number} (Date: {group['Date'].iloc[0]})")
+                st.table(group[["Drink", "Quantity"]])
 
-        # Display each order in a separate table with delete and share options
-        for order_number, group in grouped_orders:
-            st.subheader(f"{order_number} (Date: {group['Date'].iloc[0]})")
-            st.table(group[["Drink", "Quantity"]])
+                # Share button for WhatsApp
+                share_text = f"Order Summary for {order_number} (Date: {group['Date'].iloc[0]}):\n" + "\n".join(
+                    f"{row['Drink']}: {row['Quantity']}" for _, row in group.iterrows()
+                )
+                whatsapp_url = f"https://api.whatsapp.com/send?text={quote(share_text)}"
+                st.markdown(f"[Share {order_number} on WhatsApp]({whatsapp_url})", unsafe_allow_html=True)
 
-            # Share button for WhatsApp
-            share_text = f"Order Summary for {order_number} (Date: {group['Date'].iloc[0]}):\n" + "\n".join(
-                f"{row['Drink']}: {row['Quantity']}" for _, row in group.iterrows()
+                # Delete button
+                if st.button(f"Delete {order_number}", key=f"delete_{order_number}"):
+                    orders_df = orders_df[orders_df["Order Number"] != order_number]
+                    orders_df.to_csv(ORDERS_FILE, index=False)
+                    st.warning(f"{order_number} has been deleted!")
+                    st.experimental_rerun()
+
+            # Download all orders
+            st.subheader("Download All Orders")
+            csv = orders_df.to_csv(index=False).encode("utf-8")
+            st.download_button(
+                label="Download All Orders as CSV",
+                data=csv,
+                file_name="previous_orders.csv",
+                mime="text/csv",
             )
-            whatsapp_url = f"https://api.whatsapp.com/send?text={quote(share_text)}"
-            st.markdown(f"[Share {order_number} on WhatsApp]({whatsapp_url})", unsafe_allow_html=True)
-
-            # Delete button for the order
-            if st.button(f"Delete {order_number}", key=f"delete_{order_number}"):
-                orders_df = orders_df[orders_df["Order Number"] != order_number]
-                orders_df.to_csv(ORDERS_FILE, index=False)
-                st.warning(f"{order_number} has been deleted!")
-                st.experimental_rerun()  # Refresh the app after deletion
-
-        # Download orders as CSV
-        st.subheader("Download All Orders")
-        csv = orders_df.to_csv(index=False).encode("utf-8")
-        st.download_button(
-            label="Download All Orders as CSV",
-            data=csv,
-            file_name="previous_orders.csv",
-            mime="text/csv",
-        )
-    else:
-        st.info("No previous orders found.")
-
-
+        else:
+            st.info("No previous orders found.")
