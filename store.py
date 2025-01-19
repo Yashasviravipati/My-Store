@@ -134,29 +134,60 @@ else:
         else:
             st.info("No drinks in the menu. Add some to get started!")
 
-    # Tab 3: Current/Previous Orders
-    elif tab == "Current/Previous Orders":
-        st.header("Current and Previous Orders")
+# Tab 3: Current/Previous Orders
+elif tab == "Current/Previous Orders":
+    st.header("Current and Previous Orders")
 
-        # Load orders safely
-        try:
-            if os.path.exists(ORDERS_FILE):
-                orders_df = pd.read_csv(ORDERS_FILE)
-                if orders_df.empty:
-                    raise ValueError("The orders file is empty.")
-            else:
-                # Create an empty DataFrame with required columns
-                orders_df = pd.DataFrame(columns=["Order Number", "Date", "Drink", "Quantity"])
-                orders_df.to_csv(ORDERS_FILE, index=False)
-        except (pd.errors.EmptyDataError, ValueError):
-            # Handle empty or invalid file by recreating it
+    # Load orders safely
+    try:
+        if os.path.exists(ORDERS_FILE):
+            orders_df = pd.read_csv(ORDERS_FILE)
+            if orders_df.empty:
+                raise ValueError("The orders file is empty.")
+        else:
+            # Create an empty DataFrame with required columns
             orders_df = pd.DataFrame(columns=["Order Number", "Date", "Drink", "Quantity"])
             orders_df.to_csv(ORDERS_FILE, index=False)
+    except (pd.errors.EmptyDataError, ValueError):
+        # Handle empty or invalid file by recreating it
+        orders_df = pd.DataFrame(columns=["Order Number", "Date", "Drink", "Quantity"])
+        orders_df.to_csv(ORDERS_FILE, index=False)
 
-        if not orders_df.empty:
-            grouped_orders = orders_df.groupby("Order Number")
-            for order_number, group in grouped_orders:
-                st.subheader(f"{order_number} (Date: {group['Date'].iloc[0]})")
-                st.table(group[["Drink", "Quantity"]])
-        else:
-            st.info("No previous orders found.")
+    if not orders_df.empty:
+        # Group orders by Order Number
+        grouped_orders = orders_df.groupby("Order Number")
+
+        # Placeholder for updated orders
+        updated_orders = pd.DataFrame()
+
+        # Display each order in a separate table with delete and share options
+        for order_number, group in grouped_orders:
+            st.subheader(f"{order_number} (Date: {group['Date'].iloc[0]})")
+            st.table(group[["Drink", "Quantity"]])
+
+            # Share button for WhatsApp
+            share_text = f"Order Summary for {order_number} (Date: {group['Date'].iloc[0]}):\n" + "\n".join(
+                f"{row['Drink']}: {row['Quantity']}" for _, row in group.iterrows()
+            )
+            whatsapp_url = f"https://api.whatsapp.com/send?text={quote(share_text)}"
+            st.markdown(f"[Share {order_number} on WhatsApp]({whatsapp_url})", unsafe_allow_html=True)
+
+            # Delete button for the order
+            if st.button(f"Delete {order_number}", key=f"delete_{order_number}"):
+                orders_df = orders_df[orders_df["Order Number"] != order_number]
+                orders_df.to_csv(ORDERS_FILE, index=False)
+                st.warning(f"{order_number} has been deleted!")
+                st.experimental_rerun()  # Refresh the app after deletion
+
+        # Download orders as CSV
+        st.subheader("Download All Orders")
+        csv = orders_df.to_csv(index=False).encode("utf-8")
+        st.download_button(
+            label="Download All Orders as CSV",
+            data=csv,
+            file_name="previous_orders.csv",
+            mime="text/csv",
+        )
+    else:
+        st.info("No previous orders found.")
+
