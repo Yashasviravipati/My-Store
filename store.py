@@ -133,8 +133,7 @@ else:
             st.write(", ".join(default_drinks))
         else:
             st.info("No drinks in the menu. Add some to get started!")
-
-# Tab 3: Current/Previous Orders
+    # Tab 3: Current/Previous Orders
 elif tab == "Current/Previous Orders":
     st.header("Current and Previous Orders")
 
