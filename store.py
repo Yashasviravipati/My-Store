@@ -5,7 +5,7 @@ from datetime import datetime
 from urllib.parse import quote
 
 # Define the correct PIN for access
-CORRECT_PIN = "1234"  # Change this to your desired PIN
+CORRECT_PIN = "7863"  # Change this to your desired PIN
 
 # File paths for persistence
 DRINKS_FILE = "default_drinks.csv"
@@ -190,4 +190,5 @@ elif tab == "Current/Previous Orders":
         )
     else:
         st.info("No previous orders found.")
+
 
