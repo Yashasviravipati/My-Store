@@ -5,11 +5,22 @@ from datetime import datetime
 from urllib.parse import quote
 
 # Define the correct PIN for access
-CORRECT_PIN = "7863"  # Change this to your desired PIN
+CORRECT_PIN = "1234"  # Change this to your desired PIN
 
 # File paths for persistence
 DRINKS_FILE = "default_drinks.csv"
 ORDERS_FILE = "orders.csv"
+
+# Initialize default drinks globally
+if not os.path.exists(DRINKS_FILE):
+    default_drinks = [
+        "Coca Cola", "Pepsi", "Sprite", "Fanta",
+        "Mountain Dew", "7 Up", "Dr Pepper",
+        "Red Bull", "Monster Energy"
+    ]
+    pd.DataFrame({"Drink": default_drinks}).to_csv(DRINKS_FILE, index=False)
+else:
+    default_drinks = pd.read_csv(DRINKS_FILE)["Drink"].tolist()
 
 # Initialize session state for authentication
 if "authenticated" not in st.session_state:
@@ -19,6 +30,8 @@ if "authenticated" not in st.session_state:
 if not st.session_state["authenticated"]:
     st.title("Cool Drink Store Management")
     st.subheader("Enter the PIN to access the app")
+    ...
+
 
     # PIN input
     entered_pin = st.text_input("Enter PIN:", type="password")
