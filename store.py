@@ -5,7 +5,7 @@ from datetime import datetime
 from urllib.parse import quote
 
 # Define the correct PIN for access
-CORRECT_PIN = "7863"  # Change this to your desired PIN
+CORRECT_PIN = "1234"  # Change this to your desired PIN
 
 # File paths for persistence
 DRINKS_FILE = "default_drinks.csv"
@@ -159,10 +159,11 @@ else:
 
                 # Delete button
                 if st.button(f"Delete {order_number}", key=f"delete_{order_number}"):
+                    # Remove the selected order from the DataFrame
                     orders_df = orders_df[orders_df["Order Number"] != order_number]
                     orders_df.to_csv(ORDERS_FILE, index=False)
-                    st.warning(f"{order_number} has been deleted!")
-                    st.experimental_rerun()
+                    st.success(f"{order_number} has been deleted!")
+                    break  # Exit the loop after deletion
 
             # Download all orders
             st.subheader("Download All Orders")
